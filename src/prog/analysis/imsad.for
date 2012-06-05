@@ -136,8 +136,8 @@ c     Viewports for histogram, image, and subimage
       data ivp2 /0.1, 0.3, 0.6, 0.9/
 c-----------------------------------------------------------------------
       version = versan('imsad',
-     *                 '$Revision$',
-     *                 '$Date$')
+     *                 '$Revision',
+     *                 '$Date')
 
 c     Initialise program enviroment.
       call init(lui,logfile,boxes,nsize,naxis,blc,trc,clip,dolog,dohist,
@@ -1272,6 +1272,7 @@ c
       if (naxis.eq.0) call bug('f','Zero dimensions in image')
       naxis = min(naxis,MAXNAX)
       if (nsize(1).gt.MAXDIM) call bug('f','Input file to big')
+      call output('Image: '//file)
 c
 c Setup the region of interest
 c
@@ -2009,7 +2010,7 @@ c
         dde = pf(3,i)
 
         write(line2,3000) pf(2,i)*DR2AS, pf(3,i)*DR2AS
- 3000   format('Fitted offsets', 2(1x,1pe10.3), ' arcsec')
+ 3000   format('Fitted offsets', 2(1x,1pe11.4), ' arcsec')
         call output(line2)
 
         ra = ra0 + dra
