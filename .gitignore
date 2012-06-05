@@ -1,0 +1,13 @@
+*.o
+*.lo
+*.la
+build
+.libs
+.deps
+*.f_ds
+*.c_ds
+*.for_ds
+*.f2c_ds
+*.clone_ds
+*.clone
+
