@@ -3,6 +3,7 @@
 #  mir.fringe:   run (standard) fringe test
 #                and compare with reference map in non-mosaic mode
 #                keeps a copy in $MIR/data for re-use
+#  @todo   fix keep=1 for curl only operating systems
 #
 #
 set tmp=fringe$$
@@ -44,7 +45,7 @@ if (! -d $vis) then
   exit 1
 endif
 
-echo Running fringemap:
+echo Running fringemap mosaic=$mosaic :
 if ($mosaic == 0) then
   set mospars=(mosaic=0 imsize=256)
 else  

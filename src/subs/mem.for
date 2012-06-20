@@ -219,6 +219,7 @@ c  Find a block of memory that is big enough.
 c
 	if(size.le.0)
      *	  call bug('f','Bad value for size, in MemAlloc')
+
 #ifdef DEBUG
 	write(*,*)  'MemAlloc : ',size,type
 #endif
@@ -304,6 +305,7 @@ c  Check.
 c
 	if(size.le.0)
      *	  call bug('f','Bad value for size, in MemFree')
+
 	elsize = mmSize(ichar(type))
 	pntd = (pnt-1)*elsize
 	qd = pntd/intsize + 1

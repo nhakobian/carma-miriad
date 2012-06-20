@@ -1,57 +1,36 @@
-c***********************************************************************
-c  Fix CARMA 62MHz windows before March 18 2008 where the CARMA pipeline
-c  didn't properly pad/fft the data
-c
-c  Algorithm/Recipe:
-c  1) input 63 complex channels data(1:63)
-c  2) pad 0 at either end, giving 65 channels data1(1:65)
-c  3) fftcr() this to 128 real-only lags, data3(1:128)
-c  3) zero out the high end lags, data3(60:67)
-c  4) fftrc() back to spectrum, complex data2(1:65)
-c  5) copy data2(2:64) back to data(1:63), the output
 c
 c   pjt    18/19-mar08   Cloned off uvwide
 c
 c***********************************************************************
-c= uvfix62 - fix CARMA 62MHz spectral windows 
+c= uvblank - blank windowed uv variables for selected antennae
 c& pjt
 c: uv-data
 c+
-      PROGRAM uvfix62
+      PROGRAM uvblank
       IMPLICIT NONE
 c
 c
-c     UVFIX62 recomputes CARMA's 62MHz windows. These are 63 channel
-c     windows (or 65 if the end-channels were preserved) that have
-c     a wrong padding/fft problem in pipeline for data prior to
-c     about March 18, 2008.
-c     Wide-band data are also recomputed from scratch and written to
-c     the output file.
-c     
+c     UVBLANK will blank (zero) the uv variables which depend
+c     on antennas. Testing side effect of sci1 and sci2
+c   
+c     This code was used for testing, but is potentially going
+c     to be useful when finished and side-effects need to be
+c     fixed.
+c
 c@ vis
 c     The name of the input visibility dataset.  
 c     No default.
 c@ out
-c     The name of the recomputed output visibility dataset. 
-c     In addition to fixed 62MHz windows, all widebands will have been
-c     recomputed.
+c     The name of the output visibility dataset. 
 c     No default.
 c
-c@ test
-c     Optional input table with an ascii spectrum. 
-c     This will bypass vis=
+c@ ants
+c     List of antennas which need to be blanked. 
+c     No default for now,but eventually will self-detect.
+c     Common carma selections:
+c     ants=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+c     ants=16,17,18,19,20,21,22,23
 c
-c@ mode62
-c     Optional mode of fixing the 62MHz problem.
-c
-c     0=do nothing (though widebands are still recomputed)
-c     1=fix the 62MHz padding problem    [the default]
-c     11=(test) first 63 lags
-c     12=(test) last  63 lags
-c     13=(test) no zeroing of lags
-c     14=(test) zero lags as in option 1, and then subtract mean of them
-c     15=(test) write data in a table, only first scan, then quit
-c--
 c
 c-----------------------------------------------------------------------
 c
@@ -60,17 +39,21 @@ c
       INCLUDE 'maxdim.h'
       INCLUDE 'mirconst.h'
       CHARACTER PROG*(*)
-      PARAMETER (PROG = 'UVFIX62')
+      INTEGER MAXVAR
+      PARAMETER (PROG = 'UVBLANK')
+      PARAMETER (MAXVAR = 32)
+
 c
 c  Internal variables.
 c
       CHARACTER Infile*132, Outfile*132, Testfile*132, type*1
       CHARACTER string*100
-      CHARACTER*11 except(15)
-      INTEGER i, k, m, lin, lout, mode62, iostat, length
+      CHARACTER*11 except(MAXVAR)
+      INTEGER i, ib, j, k, m, lin, lout, mode62, iostat, length
       INTEGER nread, nwread, lastchn, nexcept
       INTEGER nschan(MAXCHAN), ischan(MAXCHAN), nspect, nwide, tid
-      REAL wfreq(MAXCHAN), wt, x, y
+      INTEGER bants(MAXANT), nbants, nants
+      REAL wfreq(MAXCHAN), wt, x, y, systemp(MAXWIN*MAXANT)
       DOUBLE PRECISION sdf(MAXCHAN), sfreq(MAXCHAN), preamble(5), width
       COMPLEX data(MAXCHAN), wdata(MAXCHAN)
       LOGICAL dowide, docorr, updated
@@ -82,7 +65,7 @@ c  End declarations.
 c-----------------------------------------------------------------------
 c  Announce program.
       
-      version = versan('uvfix62',
+      version = versan('uvblank',
      *   '$Revision$',
      *   '$Date$')
 
@@ -95,28 +78,16 @@ c
       CALL keyini
       CALL keyf('vis', infile, ' ')
       CALL keya('out', outfile, ' ')
-      CALL keyf('test',testfile, ' ')
-      CALL keyi('mode62', mode62, 1)
+      CALL mkeyi('ants', bants, MAXANT, nbants)
       CALL keyfin
 
-      IF(testfile.NE.' ') THEN
-         CALL txtopen(tid,testfile,'old',iostat)
-         IF(iostat.ne.0) call bug('f','bad table')
-         DO i=1,63
-            CALL txtread(tid,string, length,iostat)
-            IF(iostat.ne.0) call bug('f','short table')
-            read(string,*) wt,x,y
-            write(*,*) 'XY: ',i,x,y
-            data(i) = CMPLX(x,y)
-         ENDDO
-         CALL txtclose(tid)
-         CALL fix62(data,63,mode62)
-      ENDIF
+      CALL bug('i','Unfinished code, used for testing')
 
       CALL assertl(infile.NE.' ',
      *     'An input visibility file must be given. vis=')
       CALL assertl(outfile.NE.' ',
      *     'An out visibility file must be given. out=')
+      if (nbants.eq.0) call bug('f','Need ants=')
 
 c
 c  End of user inputs.
@@ -134,7 +105,8 @@ c
       except(4) = 'tscale'
       except(5) = 'corr'
       except(6) = 'wcorr'
-      nexcept = 6
+      except(7) = 'systemp'
+      nexcept = 7
 c
 c  Open the input visibility file.
 c
@@ -179,61 +151,32 @@ c
 c
 c  Copy unchanged variables to the output data set.
 c
-         CALL uvcopyvr(lin, lout)
+c         CALL uvcopyvr(lin, lout)
 c
-c  Get particular headers necessary to do editing (these items have
-c  already been copied, so there is no need to write them again).
+c  Get particular headers necessary to do editing 
 c
+         call UvRdVri(Lin, 'nants', nants, 0)
          CALL getwide(lin, MAXCHAN, nwide, wfreq)
-         CALL getcoor(lin, MAXCHAN, nspect, nschan, ischan, 
-     *           sdf, sfreq)
+         CALL getcoor(lin, MAXCHAN, nspect, nschan, ischan, sdf, sfreq)
 c
+c  Grab the variables that depend on nants and blank them
+c  systemp(nants,nspect)
+c
+         call UvGetvrr(Lin, 'systemp', systemp, nants*nspect)
+         do j=1,nspect
+            do ib=1,nbants
+               i = bants(ib)
+               systemp((j-1)*nants+i) = 0.0
+            enddo
+         enddo
+         call UvPutvrr(Lout, 'systemp', systemp, nants*nspect)
+        
          CALL uvwread(lin, wdata, wflags, MAXCHAN, nwread)
+
+         CALL uvcopyvr(lin, lout)
+
          IF (nwread .LE. 0) CALL bug('f',PROG // ' No wide band data?')
 
-c
-c  Fix the narrow bands, but only the ones that have 63 channels in 62 MHz mode
-c  CARMA correlator status March 2008
-c
-         DO k=1,nspect
-            IF (nschan(k).EQ.63 .AND. mode62.GT.0) THEN
-               width = nschan(k) * ABS(sdf(k)) * 1000.0
-               IF (width.GT.60 .AND. width.LT.64) THEN
-                  IF (first) write(*,*) 'Window=',k,' fix mode62=',
-     *              mode62,' width=',width
-                  CALL fix62(data(ischan(k)),nschan(k),mode62)
-               ENDIF
-            ENDIF
-         ENDDO
-         first = .FALSE.
-                  
-c
-c  Reconstruct the digital wide band data.  
-c  Weight the sums by the square of the bandwidth and keep different
-c  sums for the upper and lower sidebands.  Only include data that is
-c  previously flagged as "good" in the narrow bands.  Also omit the
-c  first and last ENDCHN channels in each window.
-c
-         DO i=1,nwide
-            wflags(i) = .TRUE.
-            wdata(i) = cmplx(0.0, 0.0)
-         ENDDO
-
-         DO k = 1, nspect
-            LastChn = ischan(k) + nschan(k) - 1
-            wt = 0.0
-            DO m = ischan(k), LastChn
-               IF (flags(m)) then
-                  wdata(k) = wdata(k) + data(m) 
-                  wt = wt + 1.0
-               ENDIF
-            ENDDO
-            IF (wt.GT.0.0) THEN
-               wdata(k) = wdata(k)/wt
-            ELSE
-               wflags(k) = .FALSE.
-            ENDIF
-         ENDDO
 
          CALL uvwwrite(lout, wdata, wflags, nwread)
          CALL uvwrite(lout, preamble, data, flags, nread)
@@ -423,170 +366,3 @@ c
       return
       end
 c***********************************************************************
-c
-c
-      SUBROUTINE fix62(data,n,mode62)
-      IMPLICIT NONE
-      INTEGER n, mode62
-      COMPLEX data(n)
-
-c
-      include 'maxdim.h'
-      COMPLEX data1(MAXCHAN), data2(MAXCHAN)
-      REAL    data3(MAXCHAN), aver
-      INTEGER i, n1
-
-      IF (mode62.EQ.0) RETURN
-
-      IF (n.NE.63) call bug('f','fix62: not a 63 channel spectrum')
-      n1 = n+1
-            
-
-c 1) copy array, and pad an extra 0 at both ends, we have 65 channels now
-      DO i=1,n
-         data1(i+1) =  data(i)
-      ENDDO
-      data1(1)    = 0
-      data1(n1+1) = 0
-
-      IF (mode62.EQ.15) THEN
-         DO i=1,n1+1
-            write(*,*) 'SPEC1: ',i,REAL(data1(i)),
-     *                             IMAG(data1(i))
-         ENDDO
-      ENDIF
-
-c 2) fft to lag space, a real valued spectrum of 128 lags
-
-      CALL fftcr(data1,data3, 1,128)
-
-      IF (mode62.EQ.15) THEN
-         DO i=1,128
-            write(*,*) 'LAG: ',i,data3(i)
-         ENDDO
-      ENDIF
-
-
-      IF (mode62.EQ.11) THEN
-         DO i=1,63
-            data(i) = data3(i)
-         ENDDO
-         RETURN
-      ENDIF
-      IF (mode62.EQ.12) THEN
-         DO i=1,63
-            data(i) = data3(i+65)
-         ENDDO
-         RETURN
-      ENDIF
-
-
-c 3) blank the tail end (notice data3(1) is the zero lag)
-c method1, around the 
-c Note that if you turn off the zero'ing, you indeed get
-c back the original spectrum, within rounding (1e-5)
-
-      IF (.false.) THEN
-
-      IF (mode62.NE.13) THEN
-         DO i=1,8
-            data3(60+i) = 0.0
-         ENDDO
-      ENDIF
-
-      ENDIF
-
-c 4) fft back
-      CALL fftrc(data3,data2, -1,128)
-
-      IF (mode62.EQ.15) THEN
-         DO i=1,n1+1
-            write(*,*) 'SPEC2: ',i,REAL(data2(i))/128.0,
-     *                             IMAG(data2(i))/128.0
-         ENDDO
-         STOP
-      ENDIF
-
-         
-
-c 5) copy array and return; 0-lag is in first array element
-      DO i=1,63
-         data(i) = data2(i+1)/128.0
-      ENDDO
-
-      END
-c-----------------------------------------------------------------------
-c NUMREC's four1 version
-      SUBROUTINE fix62f(data,n,mode62)
-      IMPLICIT NONE
-      INTEGER n, mode62
-      COMPLEX data(n)
-
-c
-      include 'maxdim.h'
-      COMPLEX data1(MAXCHAN), data2(MAXCHAN)
-      REAL    data3(MAXCHAN), aver
-      INTEGER i, n1, n2
-
-      IF (mode62.EQ.0) RETURN
-
-      IF (n.NE.63) call bug('f','fix62: not a 63 channel spectrum')
-      n1 = n+1
-            
-
-c 1) copy array, and pad an extra 0 at both ends, we have 65 channels now
-      DO i=1,n
-         data1(i+1) =  data(i)
-      ENDDO
-      data1(1)    = 0
-      n2 = 2*n1
-
-      DO i=1,n1
-         data1(n2+1-i) = CONJG(data1(i))
-      ENDDO
-      data1(n2+1) = 0
-
-      IF (mode62.EQ.15) THEN
-         DO i=1,n2
-            write(*,*) 'SPEC1: ',i,REAL(data1(i)),
-     *                             IMAG(data1(i))
-         ENDDO
-         write (*,*) 'CHECK: ',data1(n2+1)
-      ENDIF
-
-c 2) fft to lag space, a real valued spectrum of 128 lags
-
-      CALL four1(data1,128,1)
-
-      IF (mode62.EQ.15) THEN
-         DO i=1,128
-            write(*,*) 'LAG: ',i,REAL(data1(i)),IMAG(data1(i))
-         ENDDO
-         write (*,*) 'CHECK: ',data1(n2+1)
-      ENDIF
-
-c 4) fft back
-
-
-      CALL four1(data1,128,-1)
-
-      IF (mode62.EQ.15) THEN
-         DO i=1,n2
-            write(*,*) 'SPEC2: ',i,REAL(data1(i))/128.0,
-     *                             IMAG(data1(i))/128.0
-         ENDDO
-         write (*,*) 'CHECK: ',data1(n2+1)
-         STOP
-      ENDIF
-
-         
-
-c 5) copy array and return; 0-lag is in first array element
-      DO i=1,63
-         data(i) = data1(i+1)/128.0
-      ENDDO
-
-      END
-c-----------------------------------------------------------------------
-      include 'four1.for'
-c-----------------------------------------------------------------------

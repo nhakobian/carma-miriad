@@ -349,6 +349,9 @@ void tabwcr_c   (int tno, int col, float value);
 void tabwcd_c   (int tno, int col, double value);
 void tabwci_c   (int tno, int col, int value);
 void tabwca_c   (int tno, int col, char *value);
+void tabgetr_c  (int tno, int row, float *data);
+void tabgetd_c  (int tno, int row, double *data);
+void tabgeta_c  (int tno, int row, char *data);
 
 
 /* key.c */

@@ -5,7 +5,7 @@ dnl   - deprecate this file (in 4.2.x?) since 4.1.x will introduce configure.ac
 dnl     in $MIR with the new (fully automake based) build system
 dnl ------------------------------------------------------------------------------------
 
-AC_MSG_CHECKING([MIRIAD4 config])
+dnl AC_MSG_CHECKING([MIRIAD4 config])
 
 AC_INIT(checklist)
 dnl AC_CONFIG_HEADER(config.h)
@@ -116,6 +116,17 @@ case $TELESCOPE in
 	def_maxchan=12288
 	def_maxwin=48
 	def_maxwide=50
+	continue;;
+     "jwst")  echo "Selecting SMA array"     
+     	def_maxdim=65536
+	def_maxdim2=8192
+	def_maxant=512
+	def_maxant2=512
+	def_maxbase=1024
+	def_maxbase2=1024
+	def_maxchan=128
+	def_maxwin=8
+	def_maxwide=8
 	continue;;
      "test")  echo "Selecting small TEST array"
         def_maxdim=1024

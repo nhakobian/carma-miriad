@@ -43,7 +43,7 @@ Hence our CARMA cookbook.
 
 \subsection{SMA Users Guide}
 
-The recently written SMA Users Guide contains lots of useful information as well,
+The separately written SMA Users Guide contains lots of useful information as well,
 in a cookbook style, which can be complementary to the current CARMA cookbook and
 the (ATNF) \miriad\ Users Guide.
 
@@ -52,16 +52,18 @@ the (ATNF) \miriad\ Users Guide.
 Procedures specific to CARMA will be addressed in this cookbook. Most notably, 
 the UV variables (Appendix~\ref{app:uvvars}) in this version of the manual 
 should be considered the appropriate ones for CARMA and other versions may show
-missing or conflicting information for the moment.
+missing or conflicting information for the moment. There are also some commands
+in \miriad\ that are CARMA specific, and might not run (well) on data
+from e.g. WSRT, ATNF or SMA. 
 
-% laura suggest tomaybe note here which tasks are CARMA specific
+% laura suggest to maybe note here which tasks are CARMA specific
 
 
 \section{Future}
 
-This cookbook is  currently a live document, and you can expect changes to come with
-the new correlator and procedures such as PACS coming online in the coming year.
- Also be sure to be subscribed to the relevant mailing lists:
+This cookbook is a live document, and you can expect changes to come with
+a new correlator, procedures such as PACS, and polarization.
+Also be sure to be subscribed to the relevant mailing lists:
 {\tt miriad-dev} for Miriad development issues, {\tt carma\_users} for 
 CARMA observatory\footnote{subscription details on web....}.
 Miriad data versions (the filler changes from time to time). Developments around
@@ -76,14 +78,15 @@ There are two possible styles for code examples. One is WYSIWYG as
 you type it on the Unix command line and in shell scripts:
 
 \begin{verbatim}
- % uvlist  vis=cx012.SS433.2006sep07.1.miriad  options=spectra
+ % uvlist vis=cx012.SS433.2006sep07.1.miriad options=spectra
 \end{verbatim}
 
 
 and the other employs the {\tt miriad} shell, an AIPS like program in which you set variables
 and run the task, one by one. The output also shows all program parameters, leaving them
 blank if the default is used. These examples are not cut-and-paste friendly, but perhaps
-read a little easier.
+read a little easier. This {\tt miriad} shell will also remember the previous setting of 
+your keywords, which can be a blessing as well as a curse.
 
 \begin{verbatim}
 Task:   uvlist
@@ -96,7 +99,8 @@ Task:   uvlist
   log      =  
 \end{verbatim}
 
-Within the MIRIAD shell, the parameters are global, when you switch a taskname, the same {\tt vis=} would appear in
+Within the {\tt miriad} shell, 
+the parameters are global, when you switch a taskname, the same {\tt vis=} would appear in
 this list if the new task also has this parameter. This concept doesn't quite apply to the Unix command line.
 
 
@@ -133,7 +137,8 @@ Google mailing list for MIRIAD users, at
 \item 20-apr-2007:   first draft 
 \item 15-feb-2008:   Draft for version 2 of this document
 \item 21-jun-2008:   Summerschool 2008 version
-\item 12-jul-2009:   Largely Revised Summerschool 2009 version 
+\item 12-jul-2009:   Largely Revised Summerschool 2009 version
+\item jun-2012:      Summerschool 2012 version (bfmask, polarization)
 
 \end{itemize}
 

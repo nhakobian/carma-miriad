@@ -23,7 +23,7 @@ The PI will normally have received an email with a ``{\tt CARMA track
 script and logfile, and it will remind you how to download the data
 from the CARMA data archive. This Chapter guides you through the steps
 of getting your data, inspecting the data quality, and calibration of
-the data. Some comments on mapping and Deconvolution (standard
+the data. Some comments on Mapping and Deconvolution (standard
 procedures in Miriad and covered in depth elsewhere) are in place as
 well.
 
@@ -102,9 +102,11 @@ or
 \end{verbatim}
 \normalsize
 
-This procedure will only work for recent data that are in the cache, for example all the 
-``Tracks Transferred within The Last Two Days'' listed on the Quick Searches page fall
-under this category.
+This procedure will only work once you have placed your data in the cache, so you need
+to first logon and trigger the CARMA filler to create (or make visible) the dataset.
+
+It goes without saying 
+
 
 \subsection{At CARMA}
 
@@ -164,6 +166,9 @@ with a script that combines all these data in the following way:
 where each ``Day'' directory is assumed to have its
 cleaned and calibrated MIRIAD dataset named {\tt n1234c}.
 
+There is a package called MIS (can be found in {\tt \$MIR/borrow/mis}), that takes
+this one step further, and builds a whole suite of (pipeline-able) scripts around
+this concept.\index{mis}
 
 \section{Quality Check}
 
@@ -184,6 +189,8 @@ by going to ``Observing with CARMA'' and following ``Obtaining and reducing your
 ``Quality output''.  Copy the output into your directory and inspect it.
 
 % see /opt/rt/scripts/quality, but right now only works at carma
+% in MIS:
+% $MIS/templates/quality.csh proj=c0924V.3D_88Serpen.5.miriad
 
 
 \section{Data Inspection}
@@ -561,8 +568,8 @@ to check if you should re-fetch the data.\index{mdsum}
 \subsection{Baseline correction}
 
 \label{s:baseline}
-You should always check if you need to (re)apply baseline 
-corrections\footnote{any data prior to 22-jan-2008 should always be corrected}.
+You should always check if you need to (re)apply a baseline 
+correction\footnote{any data prior to 22-jan-2008 should always be corrected}.
 Although your data may come with a pretty decent baseline solution,
 often a few weeks into a new array configuration
 improved baselines will become available. In the first few days up to several weeks
@@ -577,8 +584,8 @@ at {\tt http://cedarflat.mmarray.org/observing/baseline/}, as well in your
 local MIRIAD distribution in {\tt \$MIRCAT/baselines/carma}\footnote{use {\tt cvs update}
 to get any updated baselines}
 \smallskip
-To apply a new baseline, apply the program {\tt uvedit} to your multisource data set.
-Be sure to apply the new baseline to all sources (but not the NOISE source):
+To apply a new baseline, use the program {\tt uvedit} to your multisource data set.
+% Be sure to apply the new baseline to all sources (but not the NOISE source):
 
 % \footnotesize\normalsize
 \footnotesize
@@ -591,8 +598,8 @@ In rare cases, a new and better solution is found a month or so after
 your data were taken. Check the status of the baseline solution on the
 above mentioned web page. It is a good idea to apply an appropriate
 solution if you are not sure which solution has been applied to your
-data. No harm is done if you apply a solution that has already been
-applied.
+data. No harm is done if you accidentally
+apply the same baseline solution twice.
 
 
 Notice that for data taken during a move (which can take several days
@@ -600,12 +607,20 @@ and the array will be in some hybrid configuration) an antpos file
 will be available for each day. Please check the time validity
 carefully, either by filename, or comments in the file.\index{uvedit}
 
-Errors due to baselines can be seen as slopes in phase vs. time. See
-Figure ...
+Errors due to baselines can be seen as slopes in phase vs. time. 
+% See Figure ...
 
 You can also visually check how much the baselines changed from what is
 available in your visibility dataset, by comparing  the X-Y-Z values (in nsec)
-in the {\tt antpos} file with what {\tt listobs} produced.
+in the {\tt antpos} file with what {\tt listobs} produced. The following
+command will compare two antpos files, or even the output of listobs and
+an antpos file:
+
+\footnotesize
+\begin{verbatim}
+   $MIRCAT/baselines/carma/xyzdiff.py listobs.log $MIRCAT/baselines/carma/antpos.120410   
+\end{verbatim}
+\normalsize
 
 \bigskip
 
@@ -787,6 +802,8 @@ An example of a birdie (often a antenna based single channel with high
 amplitudes) can be flagged easily with {\tt uvflag} using {\tt
 line=chan,}{\it n,start,width,step}:
 
+% DEM: Needs to be explained further.vector averaged number for all channels
+
 \footnotesize
 \begin{verbatim}
 
@@ -883,7 +900,65 @@ the recommended value is 5.
 
 %% show correlation axisrms vs. windwspeed?
 
+\subsection{bfmask based (un)flagging}
 
+In the spring 2012 CARMA added a new UV variable, {\tt bfmask}\index{bfmask}.
+This is an integer, one for each spectral window, where each bit
+in this mask identifies any of 31 possible failure modes why the data
+was flagged
+
+\footnotesize
+\begin{verbatim}
+
+  % uvlist ...  options=bfmask recnum=0 ...
+
+
+ Date               Vis # Source     bfmask    A1 A2 Pol  Itime  Dtime     dra(")  ddec(") Flag
+
+12MAY17:00:54:31.5    401 3C111    0x00000000  20 20 LL     9.7   10.0     0.00    0.00 T
+12MAY17:00:54:31.5    402 3C111    0x20000F0F  21 21 LL     0.0   10.0     0.00    0.00 F
+12MAY17:00:54:31.5    403 3C111    0x00000000  22 22 LL     9.7   10.0     0.00    0.00 T
+12MAY17:00:54:31.5    404 3C111    0x000000C0  23 23 LL     9.7   10.0     0.00    0.00 F
+12MAY17:00:54:31.5    405 3C111    0x10000000  16 17 LL     9.7   10.0     0.00    0.00 F
+
+
+\end{verbatim}
+\normalsize
+
+The task {\tt uvbflag} can be used to unflag records where a certain mask was set, and you
+would like to take the risk and unflag the data, as the underlying correllations might still
+be good (this is for you to decide). For example:
+
+
+\footnotesize
+\begin{verbatim}
+
+  % uvbflag vis=...   mask=3,4,11,12 flagval=unflag
+
+
+\end{verbatim}
+\normalsize
+
+The meanings of the masks is hidden in the help file for uvbflag, as well as described in
+the item {\tt blfmask}  (e.g. {\tt more \$VIS/blfmask}).
+
+You could also try looking at all tracking related masked data, and unflag those:
+
+\footnotesize
+\begin{verbatim}
+
+  % uvflag vis=... flagval=flag
+  % uvbflag vis=...   mask=3,4,11,12 flagval=unflag
+
+
+\end{verbatim}
+\normalsize
+
+would first flag all data (careful: no backup of the old flags is made!), 
+and then unflag the data where originally the CARMA pipeline 
+deemed the antenna was not long enough on target, and flagged the correllation. This would
+be a way to find out how good the removed correllations were that were not on target and
+compare them to the ``best'' deemed values.
 
 \section{Calibration}
 
@@ -1541,7 +1616,9 @@ A special case has been reserved for the planet Mars, since it
 offers an option to
 fine-tune your calibration.  The Miriad task {\tt marstb} \index{marstb} 
 will interpolate a table of calculated values to a given frequency and date
-in the range 1999-2014, used as follows:
+in the range 1999-2014, used as follows:\footnote{The 2012 version of this program
+has new options to use two other tables with better models. CARMA Memo \#59 discusses
+this in more detail.}
 
 To find the model value:
 \footnotesize
@@ -1590,6 +1667,169 @@ should be more reliable than CARMA's previous model (10\% different in the
 example above from a month ago).
 
 
+\subsection{Polarization}
+
+CARMA is able to observe in either dual polarization (LL and RR) as well
+as full stokes (LL, RR, LR and RL).
+
+{\bf An example:}\footnote{See also {\tt pol\_basic.csh}}
+This assumes FULLPOL correlator mode with 8 (500 MHz) wideband windows, 
+for CARMA this will
+be in the odd windows 1,3,5,7,9,11,13,15 (the even windows have 0 channels).
+
+\subsubsection{step 0:  setup parameters}
+
+\footnotesize
+\begin{verbatim}
+set RAW = ...              # name of miriad dataset
+set REFANT = 1             # MUST be a 10-m telescope!
+set SRC = ...              # source name
+set PASSCAL = ...          # passband calibrator name
+set GAINCAL = ...          # gain calibrator name
+set GAINFLUX = ...         # flux density of gain calibrator, if you know it
+set LEAKFILE = "None"      # visibility data file with leak corrections, if available
+set MAP = ...              # continuum map name
+set I_RMS = ...            # noise in total intensity map
+set QU_RMS = ...           # measured noise in Stokes Q,U,V maps
+set REGION = 'arcsec,box(12,-12,-12,12)'	# region to plot
+
+\end{verbatim}
+\normalsize
+
+\subsubsection{step 1: 'xyphase' calibration}
+
+The 'xyphase' is the LCP-RCP phase difference.  A direct calibration of the xyphase 
+is possible only on the 10-m telescopes by observing a polarized noise source.  This
+calibration is performed automatically every ~45 minutes by the standard observing
+script.  Xyphase calibration data are labeled 'purpose(P)' in the Miriad dataset.
+
+
+\footnotesize
+\begin{verbatim}
+    xyauto vis=$RAW select='purpose(P)' 
+        # ... fits purpose(P) data, stores phase correction as a bandpass
+ 
+    smagpplt vis=$RAW options=bandpass,nofit,wrap device=/xs yrange=-180,180 xaxis=chan yaxis=phase
+        # ... examine result; all phases will be zero except for C1-C6 LCP
+
+    uvcat vis=$RAW out=wide.xy options=nopol select='-source(noise),-auto,-purpose(P)' 
+        # ... rewrite data to apply the correction
+\end{verbatim}
+\normalsize
+
+
+\subsubsection{step 2: passband correction}
+
+At this point phase(LCP) = phase(RCP) on the 10-m, but not the 6-m, telescopes.
+It is essential to choose a 10-m telescope as the REFANT when fitting the passband 
+in order to transfer the xyphase calibration to the 6-m telescopes.
+
+
+\footnotesize
+\begin{verbatim}
+    mfcal vis=wide.xy select=source($PASSCAL) interval=0.1 refant=$REFANT 
+    smagpplt vis=wide.xy options=bandpass,nofit,wrap device=/xs yrange=-180,180 xaxis=chan yaxis=phase
+        # ... examine the result
+
+    uvcat vis=wide.xy out=wide.pb options=nocal,nopol 
+        # ... rewrite data to apply the correction
+
+    uvaver vis=wide.pb out=wide.av line=chan,8,1,47,47 options=nocal
+        # ... condense to just 8 channels to speed further analysis
+\end{verbatim}
+\normalsize
+
+
+\subsubsection{step 3: leakage calibration}
+
+Leakage corrections compensate for cross-coupling between the LCP and RCP channels.
+Leakages depend on the observing frequency and (unfortunately) the observing date
+(because of receiver swaps).  If feasible, use standard leakage tables.  For now, 
+obtain these by emailing chat@astro.berkeley.edu.  Or, if the gain calibrator was 
+observed  over a sufficiently wide range of parallactic angle ($>$90 degrees, say), 
+fit the leakages to these data, as shown below.  Delete flux=\$GAINFLUX if flux of
+gain calibrator is unknown.
+
+  
+\footnotesize
+\begin{verbatim}
+    uvplt vis=wide.av select='source('$GAINCAL'),pol(LL)' axis=time,parang device=/xs options=nobase,nopol
+        # ... plot parallactic angle coverage of gain calibrator
+
+    if $LEAKFILE == "None" then
+      gpcal vis=wide.av options=circular,qusolve,noxy,nopass flux=$GAINFLUX interval=0.5 \
+        refant=$REFANT select='source('$GAINCAL')' 
+          # ... fit leakages (and gains) to gain calibrator in this data set
+    else    
+      gpcopy vis=$LEAKFILE out=wide.av options=nocal,nopass
+      mfcal vis=wide.av select='source('$GAINCAL')' interval=0.5 refant=$REFANT flux=$GAINFLUX
+          # ... copy leakages from $LEAKFILE, fit gains separately 
+    endif
+ 
+    gpaver vis=wide.av options=scalar interval=15
+        # smooth gains to 15-minute time resolution
+    puthd in=wide.av/senmodel value='GSV' type=ascii
+	# tells Miriad to include gain in variance calculation inside invert
+\end{verbatim}
+\normalsize
+
+
+\subsubsection{step 4: generate maps, measure noise levels}
+
+
+At this point the data are fully calibrated.  The xyphase and passband corrections were
+applied in writing wide.av; the leakage and gains items are present in the dataset;
+
+\footnotesize
+\begin{verbatim}  
+    invert vis=wide.av line=chan,8,1,1 \
+      map=$MAP.I.mp,$MAP.Q.mp,$MAP.U.mp,$MAP.V.mp beam=$MAP.bm stokes=I,Q,U,V sup=0 \
+      'select=source('$SRC')' options=mfs,systemp cell=0.25 imsize=512
+
+    rm noiseList
+    foreach MP ($MAP.I $MAP.Q $MAP.U $MAP.V)
+      clean map=$MP.mp beam=$MAP.bm out=$MP.sl niters=3000
+      restor map=$MP.mp beam=$MAP.bm model=$MP.sl out=$MP.cm 
+      cgdisp in=$MP.cm device=/xs region='arcsec,box(20,-20,-20,20)' labtyp=arcsec 
+      echo " " >> noiseList
+      echo $MP".cm" >> noiseList
+      imlist options=stat in=$MP.cm region='arcsec,box(20,-20,-20,-5)' | tail -2 >> noiseList
+        # ... measure actual noise in a box offset from the center; change region if
+        # ... source extends into it
+    end
+
+    tail -20 noiseList
+        # ... rms for I probably will be greater than for Q,U,V
+\end{verbatim}
+\normalsize
+
+\subsubsection{step 5: plot the polarization}
+
+as wel as enter noise levels I\_{RMS} and QU\_{RMS} before proceeding.
+
+\footnotesize
+\begin{verbatim}  
+    cgdisp in=$MAP.I.cm,$MAP.Q.cm,$MAP.U.cm type=pixel,contour,contour options=full \
+      region=$REGION labtyp=hms,dms cols1=2 cols2=4 slev=a,$QU_RMS,a,$QU_RMS \
+      levs1=-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,3,4,5,6,7,8,9,10,11,12,13,14,15 \
+      levs2=-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,3,4,5,6,7,8,9,10,11,12,13,14,15 \
+      line=1,3,3 device=/xs
+        # ... >3 sigma detection of Stokes Q and/or U needed for a polarization detection
+        # ... remember that Q and U can be positive or negative
+
+    rm -r $MAP.poli.cm $MAP.polm.cm $MAP.pa.cm
+    impol poli=$MAP.poli.cm polm=$MAP.polm.cm pa=$MAP.pa.cm sigma=$QU_RMS,$I_RMS \
+      in=$MAP.Q.cm,$MAP.U.cm,$MAP.I.cm sncut=3,2
+        # ... derive pol intensity and PA maps from Stokes parameters     
+
+    cgdisp in=$MAP.I.cm,$MAP.poli.cm,$MAP.pa.cm type=contour,amp,angle \
+      region=$REGION options=full labtyp=hms,dms vecfac=1.2,4,4 beamtyp=b,l,4 \
+      lines=1,1,10 cols1=1 slev=a,$I_RMS \
+      levs1=-6,-5,-4,-3,3,4,5,6,8,10,15,20,25,30,35,40,45,50,55 \
+      device=/xs
+        # ... plot polarization vectors on total intensity map
+\end{verbatim}
+\normalsize
 
 
 \section{Mapping and Deconvolution}
