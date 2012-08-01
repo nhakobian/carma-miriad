@@ -11,9 +11,9 @@
 # Instructions:
 #    1) Edit the user-supplied parameters below
 #    2) Run the script as:
-#            carma.csh 
+#            carma_calibrate.csh 
 #       All user options can be over-ridden on the command line as, e.g.,
-#            carma.csh plots=0 linecal=0
+#            carma_calibrate.csh plots=0 linecal=0
 #       where 0 -> False  and  1 -> True.
 #            
 #    3) By default, the raw data are in the directory "raw/",
@@ -25,7 +25,7 @@
 #    1) You will likely need to re-run the script several times. You can turn
 #       off plots for selected sections using the command line. For example,
 #       to skip the tsys and general track plots, type:  
-#           carma.csh plot_track=0
+#           carma_calibrate.csh plot_track=0
 #       The available plot sections are
 #          plot_track    : Tsys vs time, raw amp vs. time, raw phases vs time,
 #                          raw spectra on passband calibrator
@@ -41,7 +41,7 @@
 #          plot_images   : Dirty images for specified sources.
 #
 #    2) If you need to restart the script, you can jump to the start of a 
-#       specific section. e.g.  carma.csh goto=passband
+#       specific section. e.g.  carma_calibrate.csh goto=passband
 #       will re-start the script at the passband calibration step.
 #       The available breakpoints (in order that they are executed) are: 
 #            baseline : Apply baseline solution
@@ -54,6 +54,33 @@
 #            gaincal  : Apply gain calibration
 #            images   : Produce dirty images
 #
+#    3) Most tracks will need custom flagging. This is best done as follows:
+#           a) Create a csh script file called "myflag.<vis>", where "<vis>" is the name 
+#              of the miriad file. For example, if your miriad is called names 
+#              c0940.1E_230HLTau.3.miriad, the flags file should be called 
+#              myflag.c0940.1E_230HLTau.3.miriad.csh . 
+#
+#           b) The first lines in the csh script should be: 
+#                 #!/bin/csh -fe
+#
+#                 # Override user supplied parameters with command line arguments
+#                   set vis = ""
+#                   foreach a ( $* )
+#                     set $a
+#                   end
+#                   if ($vis == "") then
+#                      echo "Error setting visibility file"
+#                   endif
+#
+#                 # Example flagging commands
+#                 # uvflag vis=$vis flagval=flag select="time(12:00:00,12:15:00:00)"
+#                 # uvflag vis=$vis flagval=flag select="ant(12)"
+#                 # uvflag vis=$vis flagval=flag select="ant(17),win(1)"
+#
+#                 
+#           c) The file should be made executable by typing on the command line:
+#                 chmod 755 myflag.c0940.1E_230HLTau.3.miriad.csh
+#
 # Known bugs:
 #    1) If two or more windows have exactly the same mean frequency, then 
 #       the passband calibration will be the average of the two windows.
@@ -65,7 +92,7 @@
 #       will not be remeasured. If restarting the script at the gaincal
 #       step, the gain calibrator flux should be specified within the script
 #       or on the command line. e.g.   
-#             carma.csh goto=gaincal flux_gaincal=4.3
+#             carma_calibrate.csh goto=gaincal flux_gaincal=4.3
 #
 #    3) When the noise source is split from the astronomical data, miriad
 #       somethings think there are multiple correlator configurations in the
@@ -80,7 +107,7 @@
 
 # Raw visibility file. This file is NOT modified by the script. The file 
 # is assumed located in the directory specified by the variable $dir_raw.
-  set vis           = cs070.1E_110NGC106.2.mir
+  set vis           = c0962.7D_93L1448I.1.mir
   set sci           = 1  # 1 -> 6/10m track;  2 -> 3.5m track
 
 # Directories containing the raw data and working directories
@@ -112,9 +139,9 @@
                             # It uses ant 1 to select elevations.
 
 # Source names
-  set source_passcal = 3c84       # Passband calibrator
-  set source_gaincal = 0224+069   # Gain calibrators
-  set source_image   = ngc1068    # Sources to image (comma separated list)
+  set source_passcal = 3c84 # Passband calibrator
+  set source_gaincal = 3c84 # Gain calibrators
+  set source_image   = L1448R2,HH211MM # Sources to image (comma separated list)
 
 # Set windows.
 # win_wide : indicates the wideband windows used for gain calibration.
@@ -125,7 +152,7 @@
 # edgechan : Number of edge channels to flag. If edgechan is a single number,
 #            then it applies to all windows specified with win_edge.
 #            Otherwise, you can specify a difference number of channels per 
-#            window. For example, edgechan = "1,2,3" and win_edge = "4,5,6")
+#            window. For example, edgechan = "1,2,3" and win_edge = "4,5,6"
 #            will flag the edge 1, 2, and 3 channels in window 4, 5, and 6
 #            respectively.
 # split_pb : If "1", then the passband calibrator is too weak to passband
@@ -134,7 +161,7 @@
 #            If "0", then channel-by-channel calibration is done by the 
 #            passband calibrator.
 # noise_bl : Apply baseline-based noise passband calibration
-  set win_wide = "3,4,5,6,7,11,12,13,14,15"
+  set win_wide = "1,8,9,16"
   set win_flag = ""
   set win_edge = ""
   set edgechan = ""
@@ -144,7 +171,7 @@
 # Calibration steps  (0-> skip,  1-> execute)
   set linecal   = 0   # Apply linecal. Not recommended.
   set noise     = 0   # Apply noise source passband (amplitude and phase)
-  set autocc    = 1   # Apply auto correlation passband (amplitude only)
+  set autocc    = 0   # Apply auto correlation passband (amplitude only)
   set fluxcal   = 1   # Flux calibration
   set images    = 1   # Make dirty images
 
@@ -153,25 +180,26 @@
   set interval_gain = 12.0      # [minutes]  Interval for gain calibration
   set interval_pb   = 1.0       # [minutes]  Interval for passband calibration
 
-# Image parameters
-  set cell         = 2
-  set imsize       = 129
+# Image (invert) parameters
+  set cell         = 1
+  set imsize       = 257
   set robust       = 2
+  set offset       = ""   # Choose the image reference pixel.
 
 # Miscellaneous options
-  set antpos        = ""  # Antenna position file. If blank, no solution is applied
+  set antpos        = antpos.120608  # Antenna position file. If blank, no solution is applied
   set badant        = ""   # "bad" antenna; e.g. "4,7" to flag antennas 4 and 7
   set badres        = 30  # Minimum visibility percentage to use for bootflux
   set dotsize       = 15  # Dot size for plots
   set nb_polyfit    = 0   # Order of polynomial for narrow-band passband fit. 
                           # 0-> cnst, 1->linear, etc... This does not work well.
-  set refant        =  7  # Reference antenna for selfcal solutions
+  set refant        = 7  # Reference antenna for selfcal solutions
   set taver         = 3.1 # Averaging time for bootflux
   set goto          = ""  # Indicates starting point for script
 
 # Plotting options. The specific plot options override the "plot" variable.
 # For example, to show all plots except the linecal plots, type:
-# carma.csh plot_linecal=0    
+# carma_calibrate.csh plot_linecal=0    
   set plot          = 1   # Show all plots
   set plot_track    = ""  # Plot track information at beginning of track
   set plot_linecal  = ""  # Plot line cal
@@ -201,6 +229,8 @@
     endif
     set $a
   end
+
+set orig_vis=$vis
 
 # Reset plot variables
   if ($plot_cal      == "") set plot_cal      = $plot
@@ -324,10 +354,16 @@ flag:
     echo "*** Flagging shadowed baselines  (vis=$vis)"
     csflag vis=$vis
 
-  # Flag high elevation data. Commented out since this is a serious bug.
-    echo ""
-    echo "*** Flagging data at high elevation  (vis=$vis)"
-#   uvflag vis=$vis flagval=f select="el(85,90)"
+  # Flag high elevation data
+    uvflag vis=$vis flagval=flag select="el(85,90)"
+
+  # Flag low elevation data for sci2, as the 3.5m antennas can't
+  # go below 17 degrees and can sit on the elevation limit integrating
+  # when the source is below el=17.
+    if ( "$sci" == "2" ) then
+        echo "*** Flagging data at low elevation  (vis=$vis)"
+        uvflag vis=$vis flagval=f select="el(0,17)"
+    endif
 
   # Flag used-specified bad antennas
     if ($badant != "") then
@@ -389,12 +425,22 @@ flag:
     endif
 
 # *** PUT USER-SUPPLIED FLAGGING HERE ***
+# If a file called myflag.$orig_vis exists
+# in $starting_dir then it will be run to do the 
+# flagging.  myflag.$orig_vis must have execute 
+# permission.
 myflag:
   if ($vis == "") then
      set vis = $mir_baseline
      if ($antpos != "") set vis = $mir_raw
   endif
-# uvflag vis=$vis flagval=f select="ant(17)(18),win(11)"
+
+if ( -e $starting_dir/myflag.$orig_vis.csh ) then
+  echo "####  USING NO CUSTOM FLAGGING FOR $vis ####"
+  $starting_dir/myflag.$orig_vis.csh vis=$vis
+else 
+  echo "####  NO CUSTOM FLAGGING FOR $vis ####"
+endif 
 
 
 # ********************
@@ -622,7 +668,7 @@ passband:
 # *******************************
 # This section will remove phase and amplitude offsets between windows.
 # For the wide bands, we use channel-by-channel passband.
-# For the narrow bands, we use the band average.
+# For the narrow bands, we use the window average.
 
   # Create copy of wide-band passband calibrator
     set wb = tmp_wb.mir
@@ -1059,9 +1105,9 @@ gaincal:
   endif
 
 
-# *************************
-# **** GAIN CALIBRATON ****
-# *************************
+# ******************************
+# **** PLOT CALIBRATED DATA ****
+# ******************************
 # Check data
   if ($plot_cal != "0") then
      # Calibrated phases vs time
@@ -1168,6 +1214,8 @@ images:
        if ($cell != "") set option_cell = "cell=$cell"
        set option_imsize = ""
        if ($imsize != "") set option_imsize = "imsize=$imsize"
+       set option_offset = ""
+       if ($offset != "") set option_offset = "offset=$offset"
 
      # Loop over sources
        foreach name ($sources)
@@ -1180,7 +1228,7 @@ images:
             rm -rf $map $beam
             invert vis=$vis_wide map=$map beam=$beam robust=$robust \
                    options=mfs,systemp,mosaic select="source($name)" \
-                   $option_cell $option_imsize
+                   $option_cell $option_imsize $option_offset
             if ($plot_images != "0") then
                cgdisp device=/xs in=$map labtyp=arcsec options=full,wedge
                echo -n "*** HIT RETURN TO CONTINUE ***"
@@ -1227,7 +1275,7 @@ images:
                       invert vis=$vis_narrow map=$map robust=$robust \
                              options=mfs,systemp,mosaic \
                              select="source($name),win($n)" \
-                             $option_cell $option_imsize
+                             $option_cell $option_imsize $option_offset
                       if ($plot_images != "0") then
                          cgdisp device=/xs in=$map labtyp=arcsec options=full,wedge
                          echo -n "*** HIT RETURN TO CONTINUE ***"
@@ -1238,6 +1286,6 @@ images:
        end
   endif
 
-# Go back 
+# Go back to starting directory
   cd $starting_dir
 
